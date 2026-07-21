@@ -35,7 +35,7 @@ func TestSyncDryRunPlansMissingOrganizationCloneWithoutMutation(t *testing.T) {
 	s := Synchronizer{
 		Runner: runner,
 		ListOrg: func(context.Context, string) ([]RemoteRepo, error) {
-			return []RemoteRepo{{Name: "new-repo", SSHURL: "git@github.com:onyxpie/new-repo.git"}}, nil
+			return []RemoteRepo{{Name: "new-repo", SSHURL: "git@github.com:onyxpie/new-repo.git", CloneURL: "https://github.com/onyxpie/new-repo.git"}}, nil
 		},
 	}
 
@@ -51,6 +51,9 @@ func TestSyncDryRunPlansMissingOrganizationCloneWithoutMutation(t *testing.T) {
 	}
 	if report.Count("planned_clone") != 1 {
 		t.Fatalf("planned clone count = %d, want 1; report = %#v", report.Count("planned_clone"), report.Items)
+	}
+	if report.Items[0].Detail != "https://github.com/onyxpie/new-repo.git" {
+		t.Fatalf("planned clone URL = %q, want HTTPS clone URL", report.Items[0].Detail)
 	}
 	for _, call := range runner.calls {
 		if strings.Contains(call, "git clone") {
@@ -146,7 +149,7 @@ func TestSyncClonesWithOptionTerminator(t *testing.T) {
 	s := Synchronizer{
 		Runner: runner,
 		ListOrg: func(context.Context, string) ([]RemoteRepo, error) {
-			return []RemoteRepo{{Name: "-new-repo", SSHURL: "git@github.com:onyxpie/new-repo.git"}}, nil
+			return []RemoteRepo{{Name: "-new-repo", SSHURL: "git@github.com:onyxpie/new-repo.git", CloneURL: "https://github.com/onyxpie/new-repo.git"}}, nil
 		},
 	}
 
@@ -154,7 +157,7 @@ func TestSyncClonesWithOptionTerminator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
 	}
-	want := "git clone -- git@github.com:onyxpie/new-repo.git --clone-target/-new-repo"
+	want := "git clone -- https://github.com/onyxpie/new-repo.git --clone-target/-new-repo"
 	found := false
 	for _, call := range runner.calls {
 		if strings.Contains(call, want) {

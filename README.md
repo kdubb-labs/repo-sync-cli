@@ -15,7 +15,7 @@ For each Git worktree under `--root` (default: `~/git`), it:
 
 It never uses `reset --hard`, forced checkout, force-push, or automatic commits.
 
-It queries the GitHub organization through the authenticated `gh` CLI, skips archived repositories, and clones missing repositories into `--clone-dir` (default: `~/git/<org>`). A repository already checked out elsewhere is recognized by its normalized GitHub remote, so it is not cloned twice.
+It queries the GitHub organization through the authenticated `gh` CLI, skips archived repositories, and clones missing repositories into `--clone-dir` (default: `~/git/<org>`) using GitHub's HTTPS `clone_url`, which works with the existing `gh` Git credential helper. A repository already checked out elsewhere is recognized by its normalized GitHub remote, so it is not cloned twice.
 
 > Repositories whose remote does not have `main` are reported as `skipped_no_origin_branch`. This is deliberate: the tool does not invent or rewrite remote branches. At present, `onyxpie/bookwise`, `onyxpie/onyx-social`, and `onyxpie/proofline` use `dev` as their default branch.
 

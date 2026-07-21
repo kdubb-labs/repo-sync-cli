@@ -33,6 +33,7 @@ func (OSRunner) Run(ctx context.Context, dir, name string, args ...string) (stri
 type RemoteRepo struct {
 	Name     string `json:"name"`
 	SSHURL   string `json:"ssh_url"`
+	CloneURL string `json:"clone_url"`
 	Archived bool   `json:"archived"`
 }
 
@@ -127,19 +128,27 @@ func (s Synchronizer) Sync(ctx context.Context, config Config) (Report, error) {
 			report.add(destination, "failed_destination_check", statErr.Error())
 			continue
 		}
+		cloneURL := remote.CloneURL
+		if cloneURL == "" {
+			cloneURL = remote.SSHURL
+		}
+		if cloneURL == "" {
+			report.add(destination, "failed_clone", "repository has no clone URL")
+			continue
+		}
 		if config.DryRun {
-			report.add(destination, "planned_clone", remote.SSHURL)
+			report.add(destination, "planned_clone", cloneURL)
 			continue
 		}
 		if err := os.MkdirAll(config.CloneDir, 0o755); err != nil {
 			report.add(destination, "failed_clone_directory", err.Error())
 			continue
 		}
-		if _, cloneErr := s.Runner.Run(ctx, "", "git", "clone", "--", remote.SSHURL, destination); cloneErr != nil {
+		if _, cloneErr := s.Runner.Run(ctx, "", "git", "clone", "--", cloneURL, destination); cloneErr != nil {
 			report.add(destination, "failed_clone", cloneErr.Error())
 			continue
 		}
-		report.add(destination, "cloned", remote.SSHURL)
+		report.add(destination, "cloned", cloneURL)
 		s.syncRepository(ctx, &report, destination, config)
 	}
 
