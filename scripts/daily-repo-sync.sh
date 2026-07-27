@@ -7,4 +7,5 @@ exec /Users/tuvok/.local/bin/repo-sync sync \
   --clone-dir /Users/tuvok/git/onyxpie \
   --org onyxpie \
   --branch main \
-  --json
+  --json \
+  "$@"

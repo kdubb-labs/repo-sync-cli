@@ -88,14 +88,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "error: write JSON report: %v\n", err)
 			return 1
 		}
-		return 0
+		return exitCodeForResult(result)
 	}
 	fmt.Fprintf(stdout, "updated=%d cloned=%d planned_update=%d planned_clone=%d skipped=%d failed=%d\n",
 		result.Counts["updated"], result.Counts["cloned"], result.Counts["planned_update"], result.Counts["planned_clone"], result.Skipped, result.Failed)
 	for _, item := range result.Issues {
 		fmt.Fprintf(stdout, "%s\t%s\t%s\n", item.Status, item.Path, item.Detail)
 	}
-	return 0
+	return exitCodeForResult(result)
 }
 
 type compactResult struct {
@@ -126,6 +126,13 @@ func compactReport(report syncer.Report, dryRun bool) compactResult {
 		return result.Issues[i].Status < result.Issues[j].Status
 	})
 	return result
+}
+
+func exitCodeForResult(result compactResult) int {
+	if result.Failed > 0 {
+		return 5
+	}
+	return 0
 }
 
 func listOrganizationRepos(ctx context.Context, runner syncer.CommandRunner, organization string) ([]syncer.RemoteRepo, error) {

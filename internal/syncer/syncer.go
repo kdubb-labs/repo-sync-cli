@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -200,6 +201,20 @@ func (s Synchronizer) syncRepository(ctx context.Context, report *Report, repo s
 			return
 		}
 	}
+	divergence, err := s.Runner.Run(ctx, repo, "git", "rev-list", "--left-right", "--count", "HEAD...origin/"+config.Branch)
+	if err != nil {
+		report.add(repo, "failed_divergence_check", err.Error())
+		return
+	}
+	ahead, behind, err := parseDivergence(divergence)
+	if err != nil {
+		report.add(repo, "failed_divergence_check", err.Error())
+		return
+	}
+	if ahead > 0 && behind > 0 {
+		report.add(repo, "skipped_diverged", fmt.Sprintf("local_ahead=%d remote_ahead=%d", ahead, behind))
+		return
+	}
 	if _, err := s.Runner.Run(ctx, repo, "git", "pull", "--ff-only", "--", "origin", config.Branch); err != nil {
 		report.add(repo, "failed_pull", err.Error())
 		return
@@ -233,6 +248,22 @@ func findGitRepositories(root string) ([]string, error) {
 		return nil
 	})
 	return repositories, err
+}
+
+func parseDivergence(output string) (int, int, error) {
+	parts := strings.Fields(output)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("unexpected git divergence output %q", strings.TrimSpace(output))
+	}
+	ahead, err := strconv.Atoi(parts[0])
+	if err != nil || ahead < 0 {
+		return 0, 0, fmt.Errorf("invalid local-ahead count %q", parts[0])
+	}
+	behind, err := strconv.Atoi(parts[1])
+	if err != nil || behind < 0 {
+		return 0, 0, fmt.Errorf("invalid remote-ahead count %q", parts[1])
+	}
+	return ahead, behind, nil
 }
 
 // ValidateBranch rejects names that Git would parse ambiguously or reject as a branch.

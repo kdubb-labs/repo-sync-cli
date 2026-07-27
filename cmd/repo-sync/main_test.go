@@ -28,6 +28,15 @@ func TestRunRejectsInvalidBranchWithUsageExit(t *testing.T) {
 	}
 }
 
+func TestExitCodeForResultReturnsUpstreamFailure(t *testing.T) {
+	if got := exitCodeForResult(compactResult{Failed: 1}); got != 5 {
+		t.Fatalf("exit code = %d, want 5", got)
+	}
+	if got := exitCodeForResult(compactResult{}); got != 0 {
+		t.Fatalf("exit code = %d, want 0", got)
+	}
+}
+
 func TestListOrganizationReposParsesGitHubResponse(t *testing.T) {
 	runner := &cliRunner{body: `[
 		[{"name":"clickops","ssh_url":"git@github.com:onyxpie/clickops.git","archived":false}],

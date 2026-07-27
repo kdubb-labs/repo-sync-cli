@@ -42,7 +42,7 @@ Perform the synchronization:
 repo-sync sync --root ~/git --clone-dir ~/git/onyxpie --org onyxpie --branch main --json
 ```
 
-The JSON result is deliberately compact: counts plus only skipped or failed entries. Exit status `0` means the run completed; dirty, non-main, and originless repositories are reported rather than treated as fatal errors. Exit `2` is invalid CLI usage; exit `5` is an upstream GitHub/API failure.
+The JSON result is deliberately compact: counts plus only skipped or failed entries. Exit status `0` means the run completed with no failed Git/GitHub operation; dirty, non-main, originless, and diverged repositories are safely reported as skips. Exit `2` is invalid CLI usage; exit `5` means at least one Git or GitHub synchronization action failed.
 
 For an agent-readable command contract:
 

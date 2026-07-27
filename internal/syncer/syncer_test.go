@@ -39,13 +39,7 @@ func TestSyncDryRunPlansMissingOrganizationCloneWithoutMutation(t *testing.T) {
 		},
 	}
 
-	report, err := s.Sync(context.Background(), Config{
-		Root:     root,
-		CloneDir: filepath.Join(root, "onyxpie"),
-		Org:      "onyxpie",
-		Branch:   "main",
-		DryRun:   true,
-	})
+	report, err := s.Sync(context.Background(), Config{Root: root, CloneDir: filepath.Join(root, "onyxpie"), Org: "onyxpie", Branch: "main", DryRun: true})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
 	}
@@ -72,12 +66,9 @@ func TestSyncDoesNotPlanCloneForEquivalentHTTPSAndSSHRemote(t *testing.T) {
 		"git status --porcelain":    {},
 		"git remote get-url origin": {output: "https://github.com/onyxpie/existing.git\n"},
 	}}
-	s := Synchronizer{
-		Runner: runner,
-		ListOrg: func(context.Context, string) ([]RemoteRepo, error) {
-			return []RemoteRepo{{Name: "existing", SSHURL: "git@github.com:onyxpie/existing.git"}}, nil
-		},
-	}
+	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) {
+		return []RemoteRepo{{Name: "existing", SSHURL: "git@github.com:onyxpie/existing.git"}}, nil
+	}}
 
 	report, err := s.Sync(context.Background(), Config{Root: root, CloneDir: filepath.Join(root, "onyxpie"), Org: "onyxpie", Branch: "main", DryRun: true})
 	if err != nil {
@@ -91,7 +82,6 @@ func TestSyncDoesNotPlanCloneForEquivalentHTTPSAndSSHRemote(t *testing.T) {
 func TestSyncRejectsDangerousBranchBeforeRunningCommands(t *testing.T) {
 	runner := &fakeRunner{}
 	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) { return nil, nil }}
-
 	_, err := s.Sync(context.Background(), Config{Root: t.TempDir(), Org: "onyxpie", Branch: "--force"})
 	if err == nil {
 		t.Fatal("Sync() accepted a branch beginning with a dash")
@@ -113,7 +103,6 @@ func TestSyncDryRunSkipsRepositoryWithoutOriginBranch(t *testing.T) {
 		"git ls-remote --exit-code origin refs/heads/main": {err: errors.New("not found")},
 	}}
 	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) { return nil, nil }}
-
 	report, err := s.Sync(context.Background(), Config{Root: root, Org: "onyxpie", Branch: "main", DryRun: true})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
@@ -132,7 +121,6 @@ func TestFindGitRepositoriesIncludesLinkedWorktree(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(worktree, ".git"), []byte("gitdir: /tmp/common/.git/worktrees/linked\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-
 	repositories, err := findGitRepositories(root)
 	if err != nil {
 		t.Fatalf("findGitRepositories() error = %v", err)
@@ -146,27 +134,20 @@ func TestSyncClonesWithOptionTerminator(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)
 	runner := &fakeRunner{}
-	s := Synchronizer{
-		Runner: runner,
-		ListOrg: func(context.Context, string) ([]RemoteRepo, error) {
-			return []RemoteRepo{{Name: "-new-repo", SSHURL: "git@github.com:onyxpie/new-repo.git", CloneURL: "https://github.com/onyxpie/new-repo.git"}}, nil
-		},
-	}
-
+	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) {
+		return []RemoteRepo{{Name: "-new-repo", SSHURL: "git@github.com:onyxpie/new-repo.git", CloneURL: "https://github.com/onyxpie/new-repo.git"}}, nil
+	}}
 	_, err := s.Sync(context.Background(), Config{Root: root, CloneDir: "--clone-target", Org: "onyxpie", Branch: "main"})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
 	}
 	want := "git clone -- https://github.com/onyxpie/new-repo.git --clone-target/-new-repo"
-	found := false
 	for _, call := range runner.calls {
 		if strings.Contains(call, want) {
-			found = true
+			return
 		}
 	}
-	if !found {
-		t.Fatalf("clone call with option terminator not found: %#v", runner.calls)
-	}
+	t.Fatalf("clone call with option terminator not found: %#v", runner.calls)
 }
 
 func TestSyncSkipsDirtyRepositoryWithoutFetchOrBranchChange(t *testing.T) {
@@ -180,7 +161,6 @@ func TestSyncSkipsDirtyRepositoryWithoutFetchOrBranchChange(t *testing.T) {
 		"git remote get-url origin": {output: "git@github.com:owner/dirty.git\n"},
 	}}
 	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) { return nil, nil }}
-
 	report, err := s.Sync(context.Background(), Config{Root: root, CloneDir: filepath.Join(root, "onyxpie"), Org: "onyxpie", Branch: "main"})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
@@ -191,6 +171,35 @@ func TestSyncSkipsDirtyRepositoryWithoutFetchOrBranchChange(t *testing.T) {
 	for _, call := range runner.calls {
 		if strings.Contains(call, "fetch") || strings.Contains(call, "switch") || strings.Contains(call, "pull") {
 			t.Fatalf("dirty repository was mutated: %s", call)
+		}
+	}
+}
+
+func TestSyncSkipsDivergedMainWithoutPull(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "diverged")
+	if err := makeGitDirectory(repo); err != nil {
+		t.Fatal(err)
+	}
+	runner := &fakeRunner{results: map[string]testResult{
+		"git status --porcelain":                               {},
+		"git remote get-url origin":                            {output: "https://github.com/onyxpie/diverged.git\n"},
+		"git fetch --prune origin":                             {},
+		"git show-ref --verify -- refs/remotes/origin/main":    {},
+		"git branch --show-current":                            {output: "main\n"},
+		"git rev-list --left-right --count HEAD...origin/main": {output: "9\t7\n"},
+	}}
+	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) { return nil, nil }}
+	report, err := s.Sync(context.Background(), Config{Root: root, CloneDir: filepath.Join(root, "onyxpie"), Org: "onyxpie", Branch: "main"})
+	if err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+	if report.Count("skipped_diverged") != 1 {
+		t.Fatalf("diverged report = %#v", report.Items)
+	}
+	for _, call := range runner.calls {
+		if strings.Contains(call, "git pull") {
+			t.Fatalf("diverged repository was pulled: %s", call)
 		}
 	}
 }
@@ -208,7 +217,6 @@ func TestSyncSkipsRepositoryWithoutOriginMain(t *testing.T) {
 		"git show-ref --verify -- refs/remotes/origin/main": {err: errors.New("not found")},
 	}}
 	s := Synchronizer{Runner: runner, ListOrg: func(context.Context, string) ([]RemoteRepo, error) { return nil, nil }}
-
 	report, err := s.Sync(context.Background(), Config{Root: root, CloneDir: filepath.Join(root, "onyxpie"), Org: "onyxpie", Branch: "main"})
 	if err != nil {
 		t.Fatalf("Sync() error = %v", err)
